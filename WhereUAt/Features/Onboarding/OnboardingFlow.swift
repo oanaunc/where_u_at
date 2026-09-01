@@ -6,9 +6,15 @@ import CoreLocation
 /// because there isn't one: identity is the iCloud account already on the device.
 struct OnboardingFlow: View {
     @Environment(AppState.self) private var state
-    @State private var step: Step = .welcome
+    @State private var step: Step
 
-    enum Step: Hashable { case welcome, explain, profile, location }
+    enum Step: Hashable { case welcome, explain, consent, profile, location }
+
+    init() {
+        // Someone who already onboarded but whose agreement predates a policy
+        // change is asked again — and only for that, not the whole flow.
+        _step = State(initialValue: .welcome)
+    }
 
     var body: some View {
         ZStack {
@@ -18,14 +24,26 @@ struct OnboardingFlow: View {
             Group {
                 switch step {
                 case .welcome:  WelcomeStep  { step = .explain }
-                case .explain:  ExplainStep  { step = .profile }
+                case .explain:  ExplainStep  { step = .consent }
+                case .consent:  ConsentStep  { agreed() }
                 case .profile:  ProfileStep  { step = .location }
                 case .location: LocationStep { finish() }
                 }
             }
             .readableColumn()
         }
+        .onAppear {
+            // Re-consent only: skip straight to the agreement.
+            if state.hasCompletedOnboarding && !state.hasCurrentConsent { step = .consent }
+        }
         .animation(.smooth(duration: 0.35), value: step)
+    }
+
+    private func agreed() {
+        state.recordConsent()
+        // A returning person re-agreeing doesn't need to redo their profile.
+        step = state.hasCompletedOnboarding ? .location : .profile
+        if state.hasCompletedOnboarding && state.location.hasAnyPermission { finish() }
     }
 
     private func finish() {
@@ -172,7 +190,132 @@ private struct ExplainStep: View {
     }
 }
 
-// MARK: - 3. Who you are
+// MARK: - 3. Agreement
+
+/// A distinct, unbundled, un-pre-ticked agreement. This is the point at which
+/// Where U At is allowed to start processing anything, and the app enforces
+/// that: without it, no location is read, published or stored.
+private struct ConsentStep: View {
+    @Environment(\.openURL) private var openURL
+    var next: () -> Void
+
+    @State private var agreed = false
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(spacing: 0) {
+                    Text("Before we start")
+                        .font(.system(size: 27, weight: .bold, design: .rounded))
+                        .foregroundStyle(Theme.ink)
+                        .padding(.top, 34)
+
+                    Text("Where U At handles where you are, so here is\nexactly what that means.")
+                        .font(.system(size: 14.5))
+                        .foregroundStyle(Theme.inkMuted)
+                        .multilineTextAlignment(.center)
+                        .padding(.top, 8)
+
+                    VStack(spacing: 0) {
+                        ForEach(Array(Consent.points.enumerated()), id: \.offset) { index, point in
+                            HStack(alignment: .top, spacing: 13) {
+                                ZStack {
+                                    Circle().fill(Theme.brandSoft).frame(width: 34, height: 34)
+                                    Image(systemName: point.symbol)
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundStyle(Theme.sky)
+                                }
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(point.title)
+                                        .font(.system(size: 14.5, weight: .semibold))
+                                        .foregroundStyle(Theme.ink)
+                                    Text(point.detail)
+                                        .font(.system(size: 13))
+                                        .foregroundStyle(Theme.inkMuted)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                                Spacer(minLength: 0)
+                            }
+                            .padding(.vertical, 13)
+
+                            if index < Consent.points.count - 1 {
+                                Divider().overlay(Theme.hairline)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 15)
+                    .background {
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .fill(.white.opacity(0.72))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                    .strokeBorder(Theme.hairline, lineWidth: 1)
+                            }
+                    }
+                    .padding(.horizontal, 22)
+                    .padding(.top, 24)
+
+                    Button {
+                        openURL(Consent.privacyPolicyURL)
+                    } label: {
+                        Label("Read the full Privacy Policy", systemImage: "arrow.up.right.square")
+                            .font(.system(size: 13.5, weight: .medium))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Theme.sky)
+                    .padding(.top, 18)
+                }
+            }
+            .scrollBounceBehavior(.basedOnSize)
+
+            VStack(spacing: 14) {
+                // Deliberately starts off. Nothing here is pre-agreed.
+                Button {
+                    agreed.toggle()
+                } label: {
+                    HStack(alignment: .top, spacing: 11) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(agreed ? AnyShapeStyle(Theme.brand) : AnyShapeStyle(Color.white.opacity(0.8)))
+                                .frame(width: 23, height: 23)
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .strokeBorder(agreed ? Color.clear : Theme.inkMuted.opacity(0.4), lineWidth: 1.4)
+                                .frame(width: 23, height: 23)
+                            if agreed {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundStyle(.white)
+                            }
+                        }
+                        Text("I agree to my location being shared with the people I accept, as described in the Privacy Policy.")
+                            .font(.system(size: 13.5))
+                            .foregroundStyle(Theme.ink)
+                            .multilineTextAlignment(.leading)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: 0)
+                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(agreed ? [.isSelected] : [])
+
+                Button("Agree & Continue", action: next)
+                    .buttonStyle(BrandButtonStyle())
+                    .disabled(!agreed)
+                    .opacity(agreed ? 1 : 0.45)
+
+                Text("You can withdraw this at any time in the You tab.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.inkMuted)
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 16)
+            .padding(.bottom, 30)
+        }
+        .animation(.smooth(duration: 0.2), value: agreed)
+    }
+}
+
+// MARK: - 4. Who you are
 
 private struct ProfileStep: View {
     @Environment(AppState.self) private var state
@@ -225,6 +368,8 @@ private struct ProfileStep: View {
             TextField("Your name", text: $name)
                 .textInputAutocapitalization(.words)
                 .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(Theme.ink)
+                .tint(Theme.sky)
                 .multilineTextAlignment(.center)
                 .padding(.vertical, 15)
                 .background(.white.opacity(0.8), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -293,7 +438,7 @@ private struct ProfileStep: View {
     }
 }
 
-// MARK: - 4. Location
+// MARK: - 5. Location
 
 private struct LocationStep: View {
     @Environment(AppState.self) private var state

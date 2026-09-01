@@ -13,7 +13,9 @@ struct RootView: View {
         @Bindable var state = state
 
         Group {
-            if !state.hasCompletedOnboarding {
+            // A stale agreement sends someone back through consent, not through
+            // the whole of onboarding — OnboardingFlow starts at the right step.
+            if !state.hasCompletedOnboarding || !state.hasCurrentConsent {
                 OnboardingFlow()
             } else {
                 TabView(selection: $selection) {

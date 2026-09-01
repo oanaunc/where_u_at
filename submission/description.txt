@@ -1,0 +1,29 @@
+Where U At lets you share your location with the people you choose — and see theirs — without adding anyone to Family Sharing, and without creating an account.
+
+Invite a friend, a partner, a parent. They accept. You appear on each other's maps. Either of you can stop at any moment.
+
+NO ACCOUNT, NO PASSWORD
+There is nothing to sign up for. Where U At uses the iCloud account already on your iPhone, so the whole setup is: choose your name, allow location, send an invite.
+
+SHARING IS ALWAYS MUTUAL
+Nobody can add themselves to your map. Every connection starts with an invitation that you send and they accept, or they send and you accept. If you can see them, they can see you — no one-way watching.
+
+PAUSE FOR ONE PERSON, NOT EVERYONE
+Want to be visible to your partner but not your flatmate for a while? Turn off just that one person. Everybody else is unaffected. You can also pause for everyone at once — for an hour, until tonight, until tomorrow, or until you switch it back on.
+
+KNOW WHO CAN SEE YOU
+The Privacy tab answers the only question that really matters: who can see where I am right now? It lists every person, with a switch beside each one. No digging through settings.
+
+NO LOCATION HISTORY
+Where U At keeps only your most recent position. Each new reading replaces the last. There is no trail of where you have been — not on your phone, not in iCloud, not anywhere. Nobody can look back at where you were yesterday, because that record does not exist.
+
+ARRIVAL ALERTS
+Save places like Home, Work or School and get a quiet notification when someone arrives or leaves. Your saved places stay private to you — the person you are watching is never told an alert exists.
+
+BUILT ON YOUR OWN iCLOUD
+Your location goes into your own private iCloud storage and is shared only with the people you accepted. There are no servers of ours, no analytics, no advertising, and no third-party SDKs. We cannot see your location — we have no way to look.
+
+FOR iPHONE AND iPAD
+Full-screen Apple Maps, photo pins for each person, distance and last-updated at a glance, and directions to anyone in one tap.
+
+Find each other. Only when you both want to.

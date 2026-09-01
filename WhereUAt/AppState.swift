@@ -11,10 +11,20 @@ private let log = Logger(subsystem: "com.oanarinaldi.WhereUAt", category: "AppSt
 @Observable
 final class AppState {
 
+    /// Opt-in, launch-argument-only data used to photograph the app for its
+    /// App Store listing. Release builds can never enter this mode.
+    let isScreenshotDemo: Bool
+
     // MARK: Stored on device only
 
     var myProfile: PersonProfile = .blank()
     var hasCompletedOnboarding = false
+
+    /// Which version of the privacy terms this person agreed to, and when.
+    /// Kept so a material change to the policy can ask again rather than
+    /// assuming an old agreement still covers new processing.
+    var consentVersion: String?
+    var consentedAt: Date?
     var sharingStatus: SharingStatus = .on
     /// Pairing IDs I have individually paused. Persisted locally; the effect is
     /// simply that nothing new is written into those people's zones.
@@ -37,13 +47,43 @@ final class AppState {
     var lastAcceptedName: String?
 
     let location = LocationService()
-    private let cloud = CloudKitService.shared
+    // Lazy so the debug-only screenshot mode can run without constructing a
+    // CloudKit container in an unsigned Simulator build.
+    @ObservationIgnored private lazy var cloud = CloudKitService.shared
     private var cancellables = Set<AnyCancellable>()
     private var syncTask: Task<Void, Never>?
 
     init() {
+        #if DEBUG
+        isScreenshotDemo = ProcessInfo.processInfo.arguments.contains("-ui-screenshot-demo")
+        #else
+        isScreenshotDemo = false
+        #endif
+
         loadLocal()
+        if isScreenshotDemo { loadScreenshotDemo() }
         observeLocationFixes()
+    }
+
+    // MARK: - Consent
+
+    /// True only when this person has agreed to the *current* terms.
+    var hasCurrentConsent: Bool { consentVersion == Consent.currentVersion }
+
+    func recordConsent() {
+        consentVersion = Consent.currentVersion
+        consentedAt = Date()
+        saveLocal()
+    }
+
+    /// Withdrawal has to be as easy as agreeing, and it has to actually stop the
+    /// processing — so it tears down every share and deletes the location other
+    /// people could read, not just a flag.
+    func withdrawConsent() async {
+        await deleteAllData()
+        consentVersion = nil
+        consentedAt = nil
+        saveLocal()
     }
 
     // MARK: - Derived
@@ -88,6 +128,11 @@ final class AppState {
     // MARK: - Lifecycle
 
     func bootstrap() async {
+        if isScreenshotDemo {
+            accountStatus = .available
+            return
+        }
+
         // An expired pause quietly turns sharing back on.
         if case .pausedUntil(let until) = sharingStatus, until < Date() {
             sharingStatus = .on
@@ -108,12 +153,14 @@ final class AppState {
         await NotificationService.shared.refreshAuthorizationStatus()
         await cloud.ensureSubscriptions()
 
-        if location.hasAnyPermission { location.start() }
+        // No consent, no processing — not even a local fix.
+        if hasCurrentConsent, location.hasAnyPermission { location.start() }
         await sync()
     }
 
     /// Full refresh: connections, places, rules — then re-evaluate arrival alerts.
     func sync() async {
+        if isScreenshotDemo { return }
         guard accountStatus == .available else { return }
         syncTask?.cancel()
         isSyncing = true
@@ -160,7 +207,7 @@ final class AppState {
     }
 
     private func publish(fix: CLLocation) async {
-        guard effectivelySharing else { return }
+        guard hasCurrentConsent, effectivelySharing else { return }
         let targets = outgoingPairingIDs
         guard !targets.isEmpty else { return }
 
@@ -328,6 +375,73 @@ final class AppState {
     }
 }
 
+// MARK: - App Store screenshot data
+
+private extension AppState {
+    func loadScreenshotDemo() {
+        let now = Date()
+        let mine = UUID(uuidString: "02892D9E-F609-40AD-8327-FF00CA530008")!
+        let maya = UUID(uuidString: "1BC7FB2C-5E36-41A2-B0B3-27C87E8C38A1")!
+        let alex = UUID(uuidString: "31239A96-62A6-4C57-974D-36D07CC4A82B")!
+        let sofia = UUID(uuidString: "4C2CAB08-F5A6-4074-B403-EBD97E5B1B92")!
+
+        myProfile = PersonProfile(pairingID: mine, displayName: "Oana",
+                                  pinColorHex: Theme.pinChoices[0].hexString,
+                                  emoji: nil, avatarData: nil, updatedAt: now)
+        hasCompletedOnboarding = true
+        sharingStatus = .on
+        pausedPairingIDs = []
+        nicknames = [:]
+
+        func zone(_ id: UUID, owner: String) -> CKRecordZoneIDBox {
+            CKRecordZoneIDBox(zoneName: Schema.connectionZoneName(pairingID: id),
+                              ownerName: owner)
+        }
+        func portrait(_ name: String) -> Data? {
+            UIImage(named: name)?.jpegData(compressionQuality: 0.9)
+        }
+        func profile(_ id: UUID, _ name: String, _ color: Color, _ image: String) -> PersonProfile {
+            PersonProfile(pairingID: id, displayName: name, pinColorHex: color.hexString,
+                          emoji: nil, avatarData: portrait(image), updatedAt: now)
+        }
+        func presence(_ latitude: Double, _ longitude: Double,
+                      minutesAgo: Double, battery: Double) -> Presence {
+            Presence(coordinate: .init(latitude: latitude, longitude: longitude),
+                     horizontalAccuracy: 8,
+                     capturedAt: now.addingTimeInterval(-minutesAgo * 60),
+                     battery: battery, isSharing: true, deviceName: "iPhone")
+        }
+
+        connections = [
+            Connection(pairingID: maya, outgoingZoneID: zone(maya, owner: CKCurrentUserDefaultName),
+                       incomingZoneID: zone(maya, owner: "maya-demo"),
+                       profile: profile(maya, "Maya", Theme.pinChoices[2], "DemoMaya"),
+                       presence: presence(44.4408, 26.0977, minutesAgo: 1, battery: 0.86)),
+            Connection(pairingID: alex, outgoingZoneID: zone(alex, owner: CKCurrentUserDefaultName),
+                       incomingZoneID: zone(alex, owner: "alex-demo"),
+                       profile: profile(alex, "Alex", Theme.pinChoices[4], "DemoAlex"),
+                       presence: presence(44.4357, 26.1024, minutesAgo: 4, battery: 0.64)),
+            Connection(pairingID: sofia, outgoingZoneID: zone(sofia, owner: CKCurrentUserDefaultName),
+                       incomingZoneID: zone(sofia, owner: "sofia-demo"),
+                       profile: profile(sofia, "Sofia", Theme.pinChoices[1], "DemoSofia"),
+                       presence: presence(44.4328, 26.0942, minutesAgo: 8, battery: 0.73))
+        ]
+
+        places = [
+            Place(id: "demo-home", name: "Home", symbol: "house.fill",
+                  coordinate: .init(latitude: 44.4368, longitude: 26.0982),
+                  radius: 180, createdAt: now),
+            Place(id: "demo-work", name: "Work", symbol: "briefcase.fill",
+                  coordinate: .init(latitude: 44.4401, longitude: 26.1018),
+                  radius: 250, createdAt: now)
+        ]
+        notifyRules = [
+            NotifyRule(id: "demo-rule", pairingID: maya, placeID: "demo-home",
+                       trigger: .arrives, enabled: true)
+        ]
+    }
+}
+
 // MARK: - Local persistence
 
 private enum Key {
@@ -338,6 +452,8 @@ private enum Key {
     static let paused    = "pausedPairingIDs"
     static let nicknames = "nicknames"
     static let rules     = "notifyRules"
+    static let consentVersion = "consentVersion"
+    static let consentedAt    = "consentedAt"
 }
 
 extension AppState {
@@ -345,6 +461,8 @@ extension AppState {
     func saveLocal() {
         let d = UserDefaults.standard
         d.set(hasCompletedOnboarding, forKey: Key.onboarded)
+        d.set(consentVersion, forKey: Key.consentVersion)
+        d.set(consentedAt, forKey: Key.consentedAt)
         d.set(myProfile.displayName, forKey: Key.profile + ".name")
         d.set(myProfile.pinColorHex, forKey: Key.profile + ".color")
         d.set(myProfile.emoji, forKey: Key.profile + ".emoji")
@@ -372,6 +490,8 @@ extension AppState {
     func loadLocal() {
         let d = UserDefaults.standard
         hasCompletedOnboarding = d.bool(forKey: Key.onboarded)
+        consentVersion = d.string(forKey: Key.consentVersion)
+        consentedAt = d.object(forKey: Key.consentedAt) as? Date
 
         let id = UUID(uuidString: d.string(forKey: Key.profile + ".id") ?? "") ?? UUID()
         myProfile = PersonProfile(

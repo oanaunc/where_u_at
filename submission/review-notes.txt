@@ -1,0 +1,58 @@
+THERE IS NO LOGIN. Where U At has no account system. It uses the iCloud
+account already signed in on the device. Please make sure the test device is
+signed in to iCloud (Settings > [name]) before launching — otherwise the app
+shows a "Sign in to iCloud" notice and cannot connect anyone.
+
+IMPORTANT — THE CORE FEATURE NEEDS TWO DEVICES.
+Where U At shares location between two people who have each accepted an
+invitation. It cannot be demonstrated on a single device with a single Apple
+Account. To test the full flow you need two devices signed in to two different
+Apple Accounts:
+
+  1. On device A, complete onboarding and allow location.
+  2. Tap "Add Someone" > "Share Link" and send the invitation to device B.
+  3. On device B, open the link. An invitation screen appears naming the
+     sender and stating exactly what accepting means.
+  4. Tap "Accept & Share Location".
+  5. Both devices now show each other on the Map and People tabs.
+
+A demo video of this flow is attached / available at: [ADD LINK]
+
+WHY THE APP REQUESTS "ALWAYS" LOCATION (guideline 2.5.4)
+The app's only purpose is to show the people you have accepted where you are
+now. With "While Using" permission, your position stops updating the moment
+the app is closed, so the people you share with see a stale pin — the app
+cannot do the one thing it exists for. The app therefore requests background
+location, and uses it solely to keep the shared position current.
+
+The app is deliberate about this: it asks for "While Using" first, and only
+asks for "Always" afterwards, on a screen that explains in plain language what
+is gained. If the user declines, the app still works — it says so, on the
+Location screen and again on the Privacy tab.
+
+Background location is used for nothing else. There is no advertising, no
+analytics, and no third-party SDK of any kind in the app.
+
+CONSENT MODEL (guideline 5.1.1 / 5.1.2)
+- Nobody can add themselves to another person's map. Every connection begins
+  with an invitation that one person sends and the other explicitly accepts.
+- Sharing is mutual by design. There is no one-way watching: if you can see
+  someone, they can see you.
+- The invitation screen states plainly, before acceptance, that accepting
+  means both people can see each other's location.
+- Sharing can be paused for everyone or for one person at a time, and the
+  Privacy tab lists exactly who can currently see the user.
+- Removing a connection deletes the copy of the user's location that the other
+  person was able to read.
+
+WHERE THE DATA GOES
+Location is written to the user's own private CloudKit database and shared to
+specific people using CKShare. Each connection has its own private zone shared
+with exactly one participant, read-only — that is what makes per-person
+pausing possible. We operate no servers and have no access to any of it.
+
+Only the most recent position is stored; each reading overwrites the last.
+No location history is retained anywhere.
+
+Saved places (Home, Work) and arrival-alert rules never leave the user's own
+private database and are never shared with anyone, including us.

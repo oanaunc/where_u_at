@@ -6,6 +6,8 @@ struct YouScreen: View {
     @Environment(AppState.self) private var state
     @State private var showEditProfile = false
     @State private var confirmingDeleteAll = false
+    @State private var confirmingWithdraw = false
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         NavigationStack {
@@ -51,6 +53,42 @@ struct YouScreen: View {
                     }
 
                     Section {
+                        Button { openURL(Consent.privacyPolicyURL) } label: {
+                            HStack {
+                                Label("Privacy Policy", systemImage: "hand.raised.fill")
+                                    .font(.system(size: 15))
+                                Spacer()
+                                Image(systemName: "arrow.up.right")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(Theme.inkMuted)
+                            }
+                        }
+                        Button { openURL(Consent.supportURL) } label: {
+                            HStack {
+                                Label("Support", systemImage: "questionmark.circle.fill")
+                                    .font(.system(size: 15))
+                                Spacer()
+                                Image(systemName: "arrow.up.right")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(Theme.inkMuted)
+                            }
+                        }
+                        if let date = state.consentedAt {
+                            row("checkmark.seal.fill", "You agreed",
+                                date.formatted(date: .abbreviated, time: .omitted))
+                        }
+                        Button(role: .destructive) {
+                            confirmingWithdraw = true
+                        } label: {
+                            Text("Withdraw Agreement")
+                        }
+                    } header: {
+                        Text("Your agreement")
+                    } footer: {
+                        Text("Withdrawing stops all sharing, removes every connection, and deletes the copy of your location other people could read.")
+                    }
+
+                    Section {
                         Text("Where U At keeps only your most recent location — no history of where you've been. Removing a connection deletes the copy of your location that person could read.")
                             .font(.system(size: 13))
                             .foregroundStyle(Theme.inkMuted)
@@ -85,6 +123,15 @@ struct YouScreen: View {
                 Button("Cancel", role: .cancel) { }
             } message: {
                 Text("Every connection is removed and the copies of your location other people could read are deleted. This can't be undone.")
+            }
+            .confirmationDialog("Withdraw your agreement?",
+                                isPresented: $confirmingWithdraw, titleVisibility: .visible) {
+                Button("Withdraw", role: .destructive) {
+                    Task { await state.withdrawConsent() }
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("Where U At will stop processing your location entirely. Every connection is removed and the copy of your location other people could read is deleted.")
             }
         }
     }
@@ -161,6 +208,8 @@ private struct EditProfileSheet: View {
                         .textInputAutocapitalization(.words)
                         .multilineTextAlignment(.center)
                         .font(.system(size: 17, weight: .medium))
+                        .foregroundStyle(Theme.ink)
+                        .tint(Theme.sky)
                         .padding(14)
                         .background(.white.opacity(0.8), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
 

@@ -76,6 +76,9 @@ struct WhereUAtApp: App {
             RootView()
                 .environment(state)
                 .tint(Theme.sky)
+                // Keep SwiftUI surfaces and controls aligned with the app's
+                // single light palette, regardless of the device appearance.
+                .preferredColorScheme(.light)
                 .task { await state.bootstrap() }
                 .onChange(of: broker.incoming) { _, metadata in
                     state.pendingInvitation = metadata

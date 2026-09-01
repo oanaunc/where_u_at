@@ -100,9 +100,46 @@ The Development schema has been imported into `iCloud.com.oanarinaldi.WhereUAt`
 from `cloudkit/schema.ckdb`: record types `Profile`, `Presence`, `Place`,
 `NotifyRule`, with the queryable/sortable indexes `loadPlaces()` needs.
 
-**Not deployed to Production.** Production schema changes are close to one-way —
-you can add fields but not remove them — so that is a deliberate decision to make
-once the record shapes have settled, via *Deploy Schema Changes…* in the console.
+**Deployed to Production** on 2026-09-01: `Profile`, `Presence`, `Place`,
+`NotifyRule`, plus `cloudkit.share` and the four index sets. Development and
+Production are in sync.
+
+Keep in mind what that now means: a production schema only grows. You can add
+fields and indexes, never remove them. Renaming a field is really "add the new
+one and live with the old one forever", so change record shapes in Development
+and think twice before the next deploy.
+
+`aps-environment` in the entitlements file says `development`. Leave it. Xcode
+replaces that key with the value from whichever provisioning profile it signs
+with, so an App Store archive gets `production` on its own.
+
+## Before the App Store
+
+Deploying the schema is the easy part. In rough order:
+
+1. **Test the two-device flow.** The core loop — invite, accept, share back, watch
+   each other move — has never run. It cannot run in the simulator, which has no
+   iCloud account. Two real devices, two different Apple IDs. Everything below is
+   wasted effort until this works.
+2. ~~Deploy the Development schema to Production.~~ Done.
+3. **Distribution certificate and App Store provisioning profile.** The account has
+   only an *Apple Development* identity today. Creating a distribution certificate
+   is a decision about your account — Apple caps how many you may hold — so it is
+   left to you.
+4. **A privacy policy at a public URL.** Not optional: App Store Connect will not
+   accept an app that collects location without one.
+5. **App Privacy labels** in App Store Connect — precise location, linked to the
+   user's identity, used for app functionality.
+6. **Review notes explaining the background location.** `UIBackgroundModes:
+   location` plus *Always* draws scrutiny under guideline 2.5.4. Say plainly that
+   a location-sharing app whose pins freeze when it closes does not do the one
+   thing it exists for, and point the reviewer at the consent flow: mutual
+   invitation, explicit acceptance, per-person pause, no history.
+7. **Listing assets** — screenshots at every required size, description, category,
+   age rating.
+
+There are also **no tests**. Nothing in `CloudKitService` is covered, including the
+zone-pairing logic the whole sharing model rests on.
 
 ## Known gaps
 

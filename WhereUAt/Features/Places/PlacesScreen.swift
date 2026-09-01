@@ -102,6 +102,8 @@ private struct AddPlaceSheet: View {
 
                     TextField("Place name", text: $name)
                         .textInputAutocapitalization(.words)
+                        .foregroundStyle(Theme.ink)
+                        .tint(Theme.sky)
                         .padding(14)
                         .background(.white.opacity(0.8), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
 

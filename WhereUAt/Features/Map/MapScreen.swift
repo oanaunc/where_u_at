@@ -35,6 +35,9 @@ struct MapScreen: View {
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
+        .onAppear {
+            if state.isScreenshotDemo { showEveryone() }
+        }
     }
 
     // MARK: Map
@@ -78,6 +81,8 @@ struct MapScreen: View {
                     .foregroundStyle(Theme.inkMuted)
                 TextField("Where is…", text: $search)
                     .font(.system(size: 15))
+                    .foregroundStyle(Theme.ink)
+                    .tint(Theme.sky)
                     .submitLabel(.search)
                 if !search.isEmpty {
                     Button { search = "" } label: {

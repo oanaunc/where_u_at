@@ -27,6 +27,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.oanarinaldi.WhereUAt
         PRODUCT_NAME: WhereUAt
         INFOPLIST_FILE: WhereUAt/Info.plist
+        CODE_SIGN_ENTITLEMENTS: WhereUAt/WhereUAt.entitlements
         CODE_SIGN_STYLE: Automatic
         TARGETED_DEVICE_FAMILY: "1,2"
         ENABLE_PREVIEWS: YES
@@ -35,10 +36,3 @@ targets:
         SUPPORTED_PLATFORMS: "iphoneos iphonesimulator"
         SUPPORTS_MACCATALYST: NO
         SUPPORTS_XR_DESIGNED_FOR_IPHONE: NO
-      configs:
-        # aps-environment must be "production" for App Store / TestFlight builds.
-        # Xcode does not rewrite it, so the two environments get two files.
-        Debug:
-          CODE_SIGN_ENTITLEMENTS: WhereUAt/WhereUAt.entitlements
-        Release:
-          CODE_SIGN_ENTITLEMENTS: WhereUAt/WhereUAtRelease.entitlements
