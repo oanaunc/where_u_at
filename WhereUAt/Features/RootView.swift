@@ -46,6 +46,14 @@ struct RootView: View {
         .sheet(item: $state.pendingInvitation) { metadata in
             InvitationScreen(metadata: metadata)
         }
+        .onChange(of: state.focusedPlaceID) { _, id in
+            // The Places tab hands off to the Map tab rather than showing its own
+            // map — there is only one map in the app.
+            if id != nil { selection = .map }
+        }
+        .onChange(of: state.focusedPairingID) { _, id in
+            if id != nil { selection = .map }
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await state.sync() } }
         }

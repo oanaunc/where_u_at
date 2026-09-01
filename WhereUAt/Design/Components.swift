@@ -124,6 +124,20 @@ enum DistanceText {
     }
 }
 
+enum RadiusText {
+    /// Same metric/imperial split as `DistanceText`, without the "away".
+    static func string(metres: CLLocationDistance) -> String {
+        let usesMetric = Locale.current.measurementSystem != .us
+        if usesMetric {
+            return metres < 1000 ? "\(Int(metres.rounded())) m"
+                                 : String(format: "%.1f km", metres / 1000)
+        }
+        let feet = metres * 3.28084
+        return feet < 1000 ? "\(Int(feet.rounded())) ft"
+                           : String(format: "%.1f mi", metres / 1609.34)
+    }
+}
+
 /// The section header style used down the right-hand screens in the reference.
 struct SectionHeader: View {
     var title: String

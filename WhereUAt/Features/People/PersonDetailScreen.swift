@@ -94,22 +94,44 @@ struct PersonDetailScreen: View {
     }
 
     private func mapPreview(_ presence: Presence) -> some View {
-        Map(initialPosition: .region(MKCoordinateRegion(
-            center: presence.coordinate,
-            span: MKCoordinateSpan(latitudeDelta: 0.005, longitudeDelta: 0.005)
-        ))) {
-            Annotation("", coordinate: presence.coordinate, anchor: .bottom) {
-                PersonMarker(profile: connection?.profile, isStale: presence.isStale)
+        // The Map must not take the tap itself, so hit testing is disabled on it
+        // and the Button wrapping it receives the gesture instead.
+        Button(action: showOnMap) {
+            Map(initialPosition: .region(MKCoordinateRegion(
+                center: presence.coordinate,
+                span: MKCoordinateSpan(latitudeDelta: 0.005, longitudeDelta: 0.005)
+            ))) {
+                Annotation("", coordinate: presence.coordinate, anchor: .bottom) {
+                    PersonMarker(profile: connection?.profile, isStale: presence.isStale)
+                }
+            }
+            .mapStyle(.standard(elevation: .flat))
+            .frame(height: 190)
+            .allowsHitTesting(false)
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .strokeBorder(.white.opacity(0.7), lineWidth: 1)
+            }
+            .overlay(alignment: .bottomTrailing) {
+                Label("Show on Map", systemImage: "arrow.up.left.and.arrow.down.right")
+                    .font(.system(size: 12.5, weight: .semibold))
+                    .foregroundStyle(Theme.sky)
+                    .padding(.horizontal, 11)
+                    .padding(.vertical, 7)
+                    .background(.regularMaterial, in: Capsule())
+                    .padding(10)
             }
         }
-        .mapStyle(.standard(elevation: .flat))
-        .frame(height: 190)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(.white.opacity(0.7), lineWidth: 1)
-        }
-        .allowsHitTesting(false)
+        .buttonStyle(.plain)
+        .accessibilityLabel("Show \(connection?.displayName ?? "them") on the map")
+    }
+
+    /// Hands the Map tab a target and gets out of the way — works whether this
+    /// screen was pushed from People or presented as a sheet from the map.
+    private func showOnMap() {
+        dismiss()
+        state.focusedPairingID = pairingID
     }
 
     private func actions(_ connection: Connection) -> some View {

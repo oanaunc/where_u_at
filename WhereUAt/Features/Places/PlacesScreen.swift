@@ -23,6 +23,10 @@ struct PlacesScreen: View {
                 } else {
                     List {
                         ForEach(state.places) { place in
+                            Button {
+                                // Hand the Map tab a target; RootView switches to it.
+                                state.focusedPlaceID = place.id
+                            } label: {
                             HStack(spacing: 13) {
                                 ZStack {
                                     RoundedRectangle(cornerRadius: 11, style: .continuous)
@@ -36,13 +40,19 @@ struct PlacesScreen: View {
                                     Text(place.name)
                                         .font(.system(size: 16, weight: .semibold))
                                         .foregroundStyle(Theme.ink)
-                                    Text("\(Int(place.radius)) m radius")
+                                    Text("\(RadiusText.string(metres: place.radius)) radius")
                                         .font(.system(size: 13))
                                         .foregroundStyle(Theme.inkMuted)
                                 }
                                 Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(Theme.inkMuted.opacity(0.5))
                             }
                             .padding(.vertical, 5)
+                            .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
                         }
                         .onDelete { indexes in
                             let doomed = indexes.map { state.places[$0] }
@@ -125,7 +135,7 @@ private struct AddPlaceSheet: View {
                     }
 
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Radius · \(Int(radius)) m")
+                        Text("Radius · \(RadiusText.string(metres: radius))")
                             .font(.system(size: 13, weight: .medium))
                             .foregroundStyle(Theme.inkMuted)
                         Slider(value: $radius, in: 50...1000, step: 25)

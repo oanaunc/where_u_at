@@ -12,6 +12,9 @@ struct MapScreen: View {
     @State private var search = ""
     @State private var showInvite = false
     @State private var showMySharing = false
+    /// The demo frames everyone once on first appearance — not on every tab
+    /// switch, which would override a focus the person just chose elsewhere.
+    @State private var didAutoFrame = false
 
     private var visible: [Connection] {
         let live = state.connections.filter { $0.presence?.isSharing == true }
@@ -25,6 +28,8 @@ struct MapScreen: View {
             topBarWithNotice
             bottomLayer
         }
+        .onChange(of: state.focusedPlaceID) { _, id in focus(placeID: id) }
+        .onChange(of: state.focusedPairingID) { _, id in focus(pairingID: id) }
         .sheet(isPresented: $showInvite) { InviteScreen() }
         .sheet(isPresented: $showMySharing) { MySharingSheet() }
         .sheet(item: Binding(
@@ -36,7 +41,13 @@ struct MapScreen: View {
                 .presentationDragIndicator(.visible)
         }
         .onAppear {
-            if state.isScreenshotDemo { showEveryone() }
+            if state.focusedPlaceID != nil || state.focusedPairingID != nil {
+                focus(placeID: state.focusedPlaceID)
+                focus(pairingID: state.focusedPairingID)
+            } else if state.isScreenshotDemo && !didAutoFrame {
+                didAutoFrame = true
+                showEveryone()
+            }
         }
     }
 
@@ -59,11 +70,19 @@ struct MapScreen: View {
                 }
             }
 
-            // Saved places sit behind people as soft circles.
+            // Saved places: a soft radius plus a label, so you can tell which
+            // is which. The circle alone reads as an anonymous blue wash once
+            // it's wider than the viewport.
             ForEach(state.places) { place in
                 MapCircle(center: place.coordinate, radius: place.radius)
-                    .foregroundStyle(Theme.sky.opacity(0.12))
-                    .stroke(Theme.sky.opacity(0.4), lineWidth: 1)
+                    .foregroundStyle(Theme.sky.opacity(0.10))
+                    .stroke(Theme.sky.opacity(0.35), lineWidth: 1)
+
+                Annotation(place.name, coordinate: place.coordinate, anchor: .center) {
+                    PlaceMarker(place: place, isFocused: state.focusedPlaceID == place.id)
+                        .onTapGesture { state.focusedPlaceID = place.id }
+                }
+                .annotationTitles(.hidden)
             }
         }
         .mapStyle(.standard(elevation: .flat, pointsOfInterest: .including([.cafe, .restaurant, .park])))
@@ -167,8 +186,37 @@ struct MapScreen: View {
         .buttonStyle(.plain)
     }
 
+    /// Frames one saved place, with a little room around its radius.
+    private func focus(placeID: String?) {
+        guard let placeID, let place = state.places.first(where: { $0.id == placeID }) else { return }
+        // Convert the radius to a span so the whole circle fits with margin.
+        let metresPerDegree = 111_000.0
+        let delta = max((place.radius * 3) / metresPerDegree, 0.003)
+        withAnimation(.easeInOut(duration: 0.45)) {
+            camera = .region(MKCoordinateRegion(
+                center: place.coordinate,
+                span: MKCoordinateSpan(latitudeDelta: delta, longitudeDelta: delta)
+            ))
+        }
+    }
+
+    /// Centres on one person and opens their card.
+    private func focus(pairingID: UUID?) {
+        guard let pairingID,
+              let presence = state.connection(for: pairingID)?.presence,
+              presence.isSharing else { return }
+        withAnimation(.easeInOut(duration: 0.45)) {
+            camera = .region(MKCoordinateRegion(
+                center: presence.coordinate,
+                span: MKCoordinateSpan(latitudeDelta: 0.006, longitudeDelta: 0.006)
+            ))
+        }
+    }
+
     /// Frames everyone who is currently sharing, plus me.
     private func showEveryone() {
+        state.focusedPlaceID = nil
+        state.focusedPairingID = nil
         var points = visible.compactMap { $0.presence?.coordinate }
         if let mine = state.location.lastFix?.coordinate { points.append(mine) }
         guard !points.isEmpty else { return }
@@ -203,6 +251,39 @@ struct PersonMarker: View {
                 .frame(width: 14, height: 10)
                 .shadow(color: Theme.ink.opacity(0.2), radius: 3, y: 2)
         }
+    }
+}
+
+/// A saved place on the map: symbol, name, and a highlighted state when it was
+/// just tapped over on the Places tab.
+struct PlaceMarker: View {
+    var place: Place
+    var isFocused: Bool
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: place.symbol)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 22, height: 22)
+                .background(Theme.brand, in: Circle())
+
+            Text(place.name)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Theme.ink)
+                .lineLimit(1)
+        }
+        .padding(.leading, 4)
+        .padding(.trailing, 11)
+        .padding(.vertical, 4)
+        .background(.regularMaterial, in: Capsule())
+        .overlay {
+            Capsule().strokeBorder(isFocused ? Theme.sky : Color.white.opacity(0.7),
+                                   lineWidth: isFocused ? 2 : 0.8)
+        }
+        .shadow(color: Theme.ink.opacity(0.18), radius: 8, y: 3)
+        .scaleEffect(isFocused ? 1.08 : 1)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isFocused)
     }
 }
 

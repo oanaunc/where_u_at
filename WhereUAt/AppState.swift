@@ -44,6 +44,11 @@ final class AppState {
     var errorMessage: String?
     /// Set when a share invitation arrives, so the UI can present the accept sheet.
     var pendingInvitation: CKShare.Metadata?
+    /// A place the person tapped on the Places tab. Sends the Map tab to it and
+    /// keeps it highlighted until another is chosen.
+    var focusedPlaceID: String?
+    /// A person the app should centre the map on, set from their detail screen.
+    var focusedPairingID: UUID?
     var lastAcceptedName: String?
 
     let location = LocationService()
@@ -389,6 +394,10 @@ private extension AppState {
                                   pinColorHex: Theme.pinChoices[0].hexString,
                                   emoji: nil, avatarData: nil, updatedAt: now)
         hasCompletedOnboarding = true
+        // The demo has to clear the consent gate too, or it lands on the
+        // agreement screen instead of the app it is meant to photograph.
+        consentVersion = Consent.currentVersion
+        consentedAt = now
         sharingStatus = .on
         pausedPairingIDs = []
         nicknames = [:]
